@@ -17,7 +17,7 @@ docker run -d --name jaeger \
   -p 16686:16686 \
   -p 14268:14268 \
   -p 9411:9411 \
-  jaegertracing/all-in-one:1.6
+  jaegertracing/all-in-one:latest
 ```
 
 Acesso à interface web em [http://localhost:16686](http://localhost:16686)

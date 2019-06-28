@@ -18,16 +18,19 @@ import (
 
 const collectorURL = "http://0.0.0.0:14268/api/traces"
 
-//initializes and replaces global constants.
-//keep in mind that some of the overwritten variables
-//here could result in unexpected behaviors.
-//that's  ok for an example, but may cause side effects
-//on bigger applications.
+var (
+	httpClient *http.Client
+)
+
+//initializes the opencensus exporter for jaeger
 func init() {
 	exporter, err := jaeger.NewExporter(jaeger.Options{
 		CollectorEndpoint: collectorURL,
 		Process: jaeger.Process{
 			ServiceName: "Fibonacci",
+			Tags: []jaeger.Tag{
+				jaeger.StringTag("release", "v0.0.1"),
+			},
 		},
 	})
 	if err != nil {
@@ -41,7 +44,7 @@ func init() {
 	trace.RegisterExporter(exporter)
 	trace.RegisterExporter(&exp.PrintExporter{})
 
-	http.DefaultClient = &http.Client{
+	httpClient = &http.Client{
 		Transport: &ochttp.Transport{
 			NewClientTrace: ochttp.NewSpanAnnotatingClientTrace,
 		},
@@ -49,7 +52,6 @@ func init() {
 }
 
 //main entry point of our example.
-//needless to say that it's not safe for production environments.
 func main() {
 	mux := mux.NewRouter()
 	mux.Path("/fib").HandlerFunc(fibHandler)
@@ -87,6 +89,11 @@ func fibHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(err.Error()))
 		return
 	}
+	if rank <= 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+		return
+	}
 	res := result{
 		Result: fibCalc(r.Context(), rank),
 	}
@@ -96,6 +103,7 @@ func fibHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(err.Error()))
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(result)
 }
@@ -110,7 +118,7 @@ func fibCalc(ctx context.Context, rank int) int {
 	if rank == 0 || rank == 1 {
 		return rank
 	}
-	return fibReq(cCtx, rank-2) + fibReq(cCtx, rank-1)
+	return fibCalc(cCtx, rank-2) + fibCalc(cCtx, rank-1)
 }
 
 //wrapper for the http request for the app itself.
@@ -122,7 +130,7 @@ func fibReq(ctx context.Context, rank int) int {
 		log.Fatal(err)
 	}
 	req = req.WithContext(ctx)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		log.Println(err)
 	}
