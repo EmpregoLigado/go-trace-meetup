@@ -89,9 +89,8 @@ func fibHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(err.Error()))
 		return
 	}
-	if rank <= 0 {
+	if rank < 0 {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
 		return
 	}
 	res := result{
@@ -118,7 +117,7 @@ func fibCalc(ctx context.Context, rank int) int {
 	if rank == 0 || rank == 1 {
 		return rank
 	}
-	return fibCalc(cCtx, rank-2) + fibCalc(cCtx, rank-1)
+	return fibReq(cCtx, rank-2) + fibReq(cCtx, rank-1)
 }
 
 //wrapper for the http request for the app itself.
@@ -133,6 +132,7 @@ func fibReq(ctx context.Context, rank int) int {
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		log.Println(err)
+		return 0
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
